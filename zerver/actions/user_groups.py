@@ -58,6 +58,33 @@ def create_user_group_in_database(
     )
     return user_group
 
+@transaction.atomic(savepoint=False)
+def create_single_member_system_group(
+    name: str, realm: Realm, *, acting_user: UserProfile
+) -> UserGroup:
+    try:
+        user_group = UserGroup.objects.get(
+            name=name,
+            realm=realm,
+            is_system_group=True,
+        )
+    except UserGroup.DoesNotExist:
+        nobody_user_group = UserGroup.objects.get(
+            name=UserGroup.NOBODY_GROUP_NAME,
+            realm=realm,
+            is_system_group=True,
+        )
+        user_group = create_user_group_in_database(
+            name,
+            [acting_user],
+            realm,
+            is_system_group=True,
+            group_settings_map=dict(can_mention_group=nobody_user_group),
+            acting_user=acting_user,
+        )
+        do_send_create_user_group_event(user_group, [acting_user])
+    return user_group
+
 
 @transaction.atomic(savepoint=False)
 def update_users_in_full_members_system_group(

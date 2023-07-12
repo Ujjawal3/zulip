@@ -37,6 +37,7 @@ from zerver.actions.streams import (
     do_change_subscription_property,
     do_deactivate_stream,
     do_rename_stream,
+    do_set_stream_group_based_setting_from_group_name,
     get_subscriber_ids,
 )
 from zerver.context_processors import get_valid_realm_from_request
@@ -397,6 +398,15 @@ def update_stream_backend(
             if sub is None and stream.invite_only:
                 # Admins cannot change this setting for unsubscribed private streams.
                 raise JsonableError(_("Invalid stream ID"))
+
+            if isinstance(request_settings_dict[setting_group_id_name], str):
+                user_group_name = request_settings_dict[setting_group_id_name]
+
+                if user_group_name != getattr(stream, setting_name).name:
+                    do_set_stream_group_based_setting_from_group_name(
+                        stream, setting_name, user_group_name, acting_user=user_profile
+                    )
+                continue
 
             user_group_id = request_settings_dict[setting_group_id_name]
             user_group = access_user_group_for_setting(

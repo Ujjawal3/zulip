@@ -16,6 +16,7 @@ from zerver.actions.default_streams import (
     do_remove_streams_from_default_stream_group,
 )
 from zerver.actions.message_send import internal_send_stream_message
+from zerver.actions.user_groups import create_single_member_system_group
 from zerver.lib.cache import (
     cache_delete,
     cache_delete_many,
@@ -1346,3 +1347,13 @@ def do_change_stream_group_based_setting(
         name=stream.name,
     )
     send_event_on_commit(stream.realm, event, can_access_stream_user_ids(stream))
+
+@transaction.atomic(durable=True)
+def do_set_stream_group_based_setting_from_group_name(
+    stream: Stream, setting_name: str, user_group_name: str, *, acting_user: UserProfile
+) -> None:
+    user_group = create_single_member_system_group(
+        user_group_name, stream.realm, acting_user=acting_user
+    )
+
+    do_change_stream_group_based_setting(stream, setting_name, user_group, acting_user=acting_user)
